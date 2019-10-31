@@ -38,25 +38,25 @@ module.exports = function (app, con) {
 	app.post('/register', (req, res) => {
 		const registerUserQuery = 'INSERT INTO users (firstName, lastName, email, phoneNumber, username, password) VALUES (?, ?, ?, ?, ?, ?)';
 
-		var firstName = req.body.firstName;
-		var lastName = req.body.lastName;
-		var email = req.body.email;
-		var phoneNumber = req.body.phoneNumber;
-		var username = req.body.username;
-		var password = req.body.password;
+		var values = [req.body.firstName, req.body.lastName, req.body.email, req.body.phoneNumber, req.body.username, req.body.password];
 
-		con.query(registerUserQuery, [firstName, lastName, email, phoneNumber, username, password], (err, rows, fields) => {
+		con.query(registerUserQuery, [values], (err, rows, fields) => {
 			if (err) {
 				console.log("Failed To Insert New User: " + err);
 				res.sendStatus(500);
 				return;
 			}
-			console.log('Fetched User' + userId);
+			console.log("Inserted New User With Id: " + result.insertId);
 			res.json(rows);
-		});
+		});		
+	});
 
-		console.log("Inserted New User");
-	})
+
+	app.post('/test', (req, res) => {
+		
+		console.log(req.body);
+
+	});
 
 	//#endregion
 }
