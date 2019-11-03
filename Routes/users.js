@@ -1,4 +1,10 @@
+var bodyParser = require("body-parser");
+
 module.exports = function (app, con) {
+	
+	// Body Parser
+	app.use(bodyParser.urlencoded({ extended: false }));
+	app.use(bodyParser.json());
 
 	//#region Get
 
@@ -36,9 +42,12 @@ module.exports = function (app, con) {
 
 	// Create A User
 	app.post('/register', (req, res) => {
-		const registerUserQuery = 'INSERT INTO users (firstName, lastName, email, phoneNumber, username, password) VALUES (?, ?, ?, ?, ?, ?)';
+		const registerUserQuery = 'INSERT INTO users (firstName, lastName, email, phoneNumber, username, password, isActive) VALUES ?';
+		// (?, ?, ?, ?, ?, ?, ?)
 
-		var values = [req.body.firstName, req.body.lastName, req.body.email, req.body.phoneNumber, req.body.username, req.body.password];
+		var values = [
+			[req.body.firstName , req.body.lastName, req.body.email, req.body.phoneNumber, req.body.username, req.body.password, req.body.isActive]
+		];
 
 		con.query(registerUserQuery, [values], (err, rows, fields) => {
 			if (err) {
@@ -46,17 +55,11 @@ module.exports = function (app, con) {
 				res.sendStatus(500);
 				return;
 			}
-			console.log("Inserted New User With Id: " + result.insertId);
+			console.log("Inserted New User");
 			res.json(rows);
 		});		
 	});
 
-
-	app.post('/test', (req, res) => {
-		
-		console.log(req.body);
-
-	});
-
 	//#endregion
+	
 }
