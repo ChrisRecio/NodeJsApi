@@ -1,4 +1,5 @@
-var bodyParser = require("body-parser");
+const bodyParser = require("body-parser");
+const jwt = require('jsonwebtoken');
 
 module.exports = function (app, con) {
 	
@@ -32,7 +33,14 @@ module.exports = function (app, con) {
 				res.sendStatus(500);
 				return;
 			}
-			console.log('Fetched User' + userId);
+
+			// Checks If A User Was Returned
+			if(isEmptyObject(rows)){
+				res.json("No Users Found");
+			}else{
+				res.json(rows);
+			}
+
 			res.json(rows);
 		});
 	});
@@ -41,25 +49,132 @@ module.exports = function (app, con) {
 	//#region Post
 
 	// Create A User
-	app.post('/register', (req, res) => {
+	app.post('/register', verifyToken, (req, res) => {
 		const registerUserQuery = 'INSERT INTO users (firstName, lastName, email, phoneNumber, username, password, isActive) VALUES ?';
-		// (?, ?, ?, ?, ?, ?, ?)
 
 		var values = [
 			[req.body.firstName , req.body.lastName, req.body.email, req.body.phoneNumber, req.body.username, req.body.password, req.body.isActive]
 		];
 
-		con.query(registerUserQuery, [values], (err, rows, fields) => {
+		jwt.verify(req.token, 'secretKey', (err, authData) => {
 			if (err) {
-				console.log("Failed To Insert New User: " + err);
 				res.sendStatus(500);
-				return;
+			}else{
+				con.query(registerUserQuery, [values], (err, rows, fields) => {
+					if (err) {
+						res.sendStatus(500);
+						return;
+					}
+					jwt.sign({rows}, 'secretKey', (err, token) => {
+						res.json(token);
+					})
+				});	
 			}
-			console.log("Inserted New User");
-			res.json(rows);
 		});		
 	});
 
-	//#endregion
+	// Edit A Users Password
+	app.post('/changePassword', verifyToken, (req, res) => {
+		const getUserByIdQuery = 'SELECT * FROM users WHERE id = ?';
+		const updateUserByIdQuery = 'UPDATE users SET password = ? WHERE id = ?';
+		const userId = req.body.id;
+		const password = req.body.password;
+		
+		jwt.verify(req.token, 'secretKey', (err, authData) => {
+			if (err) {
+				res.sendStatus(500);
+			}else{
+
+				// Checks If User Exists
+				con.query(getUserByIdQuery, [userId], (err, rows, fields) => {
+					if (err) {
+						console.log("Failed To Query For Users: " + err);
+						res.sendStatus(500);
+						return;
+					}else { // If Exists Run Update Query
+						con.query(updateUserByIdQuery, [password, userId], (err, rows, fields) =>{
+							if(err){
+								res.sendStatus(500);
+								return;
+							}else{
+								jwt.sign({rows}, 'secretKey', (err, token) => {
+									res.json(token);
+								})
+							}					
+						});
+					}  
+					
+				});
+
+			}
+
+		});
 	
+	});
+
+	// Login
+	app.post('/login', verifyToken, (req, res) => {
+		const loginQuery = 'SELECT * FROM users WHERE username = ? AND password = ? AND isActive = 1';
+		const username = req.body.username;
+		const password = req.body.password;
+
+		jwt.verify(req.token, 'secretKey', (err, authData) => {
+			if (err) {
+				res.sendStatus(500);
+			}else{
+
+				con.query(loginQuery, [username, password], (err, rows, fields) => {			
+			
+					if (err) {
+						console.log("Failed Login Query For Users: " + err);
+						res.sendStatus(500);
+						return;
+					}else{
+		
+						// Checks If A User Was Returned
+						if(isEmptyObject(rows)){
+							res.json("Invalid Login Credentials");
+						}else{
+							jwt.sign({rows}, 'secretKey', (err, token) => {
+								res.json(token);
+							});
+							
+						}
+					}
+				});
+
+			}
+
+		});
+	});
+
+	//#endregion
+
+	//#region Functions
+
+	function verifyToken(req, res, next) {
+		
+		const bearerHeader = req.headers['authorization'];
+		
+		if(typeof bearerHeader !== 'undefined') {
+		  
+		  const bearer = bearerHeader.split(' ');
+		  
+		  const bearerToken = bearer[1];
+		  
+		  req.token = bearerToken;
+		  
+		  next();
+		} else {
+		  // Forbidden
+		  res.sendStatus(403);
+		}
+	  
+	}
+
+	function isEmptyObject(obj) {
+		return !Object.keys(obj).length;
+	}
+
+	//#endregion
 }
