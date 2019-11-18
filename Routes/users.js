@@ -49,27 +49,21 @@ module.exports = function (app, con) {
 	//#region Post
 
 	// Create A User
-	app.post('/register', verifyToken, (req, res) => {
+	app.post('/register', (req, res) => {
 		const registerUserQuery = 'INSERT INTO users (firstName, lastName, email, phoneNumber, username, password, isActive) VALUES ?';
 
 		var values = [
 			[req.body.firstName , req.body.lastName, req.body.email, req.body.phoneNumber, req.body.username, req.body.password, req.body.isActive]
 		];
 
-		jwt.verify(req.token, 'secretKey', (err, authData) => {
+		con.query(registerUserQuery, [values], (err, rows, fields) => {
 			if (err) {
 				res.sendStatus(500);
-			}else{
-				con.query(registerUserQuery, [values], (err, rows, fields) => {
-					if (err) {
-						res.sendStatus(500);
-						return;
-					}
-					jwt.sign({rows}, 'secretKey', (err, token) => {
-						res.json(token);
-					})
-				});	
+				return;
 			}
+			jwt.sign({rows}, 'secretKey', (err, token) => {
+				res.json(token);
+			})
 		});		
 	});
 
@@ -113,38 +107,30 @@ module.exports = function (app, con) {
 	});
 
 	// Login
-	app.post('/login', verifyToken, (req, res) => {
+	app.post('/login', (req, res) => {
 		const loginQuery = 'SELECT * FROM users WHERE username = ? AND password = ? AND isActive = 1';
 		const username = req.body.username;
 		const password = req.body.password;
 
-		jwt.verify(req.token, 'secretKey', (err, authData) => {
+		console.log(username + " " + password);
+
+		con.query(loginQuery, [username, password], (err, rows, fields) => {			
+			
 			if (err) {
+				console.log("Failed Login Query For Users: " + err);
 				res.sendStatus(500);
+				return;
 			}else{
 
-				con.query(loginQuery, [username, password], (err, rows, fields) => {			
-			
-					if (err) {
-						console.log("Failed Login Query For Users: " + err);
-						res.sendStatus(500);
-						return;
-					}else{
-		
-						// Checks If A User Was Returned
-						if(isEmptyObject(rows)){
-							res.json("Invalid Login Credentials");
-						}else{
-							jwt.sign({rows}, 'secretKey', (err, token) => {
-								res.json(token);
-							});
-							
-						}
-					}
-				});
-
+				// Checks If A User Was Returned
+				if(isEmptyObject(rows)){
+					res.json("Invalid Login Credentials");					
+				}else{
+					jwt.sign({rows}, 'secretKey', (err, token) => {
+						res.json(token);
+					});					
+				}
 			}
-
 		});
 	});
 
